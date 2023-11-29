@@ -2,20 +2,23 @@
 import numpy as np 
 import nltk
 
+import json
+
 
 from gensim.models import doc2vec
+from gensim.utils import simple_preprocess
+
 
 #tokenising
 nltk.download("punkt")
 
 class ReviewModel:
-    def __init__(self, reviewList):
+    def __init__(self, review_dataset):
         #list of large strings for each review
-        self.reviewList = reviewList
+        self.review_dataset = review_dataset
         self.model = doc2vec.Doc2Vec(vector_size=2, min_count=1, window=3, workers=2, epochs=2)
 
-        #list of tagged reviews for each doc, main difference between word2vec and doc2vec
-        self.training_data = [doc2vec.TaggedDocument(review, [index]) for index, review  in enumerate(reviewList)]
+        self.training_data = self.process_training_data()
 
         self.model.build_vocab(self.training_data)
         
@@ -23,9 +26,18 @@ class ReviewModel:
         #constraining vocab size with large corpus of data, increases chance of rep of word being more powerful?
         print("Vocab size:", len(words))
 
+    def process_training_data(self):
+        #list of tagged reviews for each doc, main difference between word2vec and doc2vec
+        training_data = [doc2vec.TaggedDocument(simple_preprocess(review["reviewText"]), [index]) for index, review in enumerate(review_dataset)]
+        return training_data
+
+
     def train(self):
         self.model.train(self.training_data, total_examples=self.model.corpus_count, epochs=self.model.epochs)
         print("succesfully trained the model")
+
+    def generate_embeddings_for_database(self):
+        pass
 
     #infer vector -> make prediction
     def predict(self, review):
@@ -33,8 +45,14 @@ class ReviewModel:
         return vector
 
 if __name__ == "__main__":
-    review = ReviewModel(["This is a review for a electric charger company", "This is another review for a top electric charger company", "This is another review for a electric car specialist garage", "This is a review for fracture therapy", "This is not a service at all"])
-    review.train()
+
+    #open json file
+    f = open("review_corpus.json")
+    #return json object as dict
+    review_dataset = json.load(f)
+
+    review = ReviewModel(review_dataset)
+    # review.train()
 
     # _input = "This is a service"
     # print(_input)
