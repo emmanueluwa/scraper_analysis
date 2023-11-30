@@ -34,3 +34,15 @@ ML method
   embedding: []
   }
   ]
+
+
+# Progress thus far
+
+- created a crawler to crawl yelp vet reviews
+
+- made a basic script to train a word embeddings layer 
+
+  - allowing the ability to perform predictions on the words to vectorise them
+
+- added the ability to get the top most similar reviews returned based on a review passed in using cosine similarity 
+
