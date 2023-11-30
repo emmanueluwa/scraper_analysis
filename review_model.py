@@ -1,5 +1,6 @@
 #simple word2vec model
 import numpy as np 
+from numpy.linalg import norm
 import nltk
 import time
 import json
@@ -37,7 +38,10 @@ class callback(CallbackAny2Vec):
         self.epoch += 1
 
 class ReviewModel:
-    def __init__(self, review_dataset):
+    def __init__(self, review_dataset=[]):
+        if len(review_dataset) == 0:
+            return
+
         #list of large strings for each review
         self.review_dataset = review_dataset
         self.model = doc2vec.Doc2Vec(vector_size=32, min_count=1, window=20, workers=2, epochs=2, compute_loss=True)
@@ -53,7 +57,7 @@ class ReviewModel:
 
     def process_training_data(self):
         #list of tagged reviews for each doc, main difference between word2vec and doc2vec
-        training_data = [doc2vec.TaggedDocument(simple_preprocess(review["reviewText"]), [index]) for index, review in enumerate(review_dataset)]
+        training_data = [doc2vec.TaggedDocument(nltk.word_tokenize(review["reviewText"]), [index]) for index, review in enumerate(self.review_dataset)]
         return training_data
 
 
@@ -67,7 +71,7 @@ class ReviewModel:
         print("Generating embeddings for dataset")
         for i, review in enumerate(self.review_dataset):
             #vectorised representation of the data
-            embedding = self.predict(review["reviewText"])
+            embedding = self.predict(review["reviewText"]).tolist()
             self.review_dataset[i]["embedding"] = embedding
 
 
@@ -79,8 +83,31 @@ class ReviewModel:
 
     #infer vector -> make prediction
     def predict(self, review):
-        vector = self.model.infer_vector(simple_preprocess(review)).tolist()
+        vector = self.model.infer_vector(nltk.word_tokenize(review))
         return vector
+
+    def save_model(self):
+        self.model.save("review.model")
+        print("model saved")
+    
+    def load_model(self):
+        self.model = doc2vec.Doc2Vec.load("review.model")
+
+    def rank(self, description, top_n=10):
+
+        for i, review in enumerate(self.review_dataset):
+
+            A = self.predict(description)
+            B = self.predict(review["reviewText"])
+            
+            #numpy cosine similarity formula
+            score = np.dot(A,B)/(norm(A)*norm(B))
+            print("score", score)
+            self.review_dataset[i]["score"] = score
+        
+        dataset = list(map(lambda x: {"review": x["reviewText"], "score": x["score"]} , self.review_dataset))
+        return sorted(dataset, key=lambda d: d["score"], reverse=True)[:top_n]
+            
 
 if __name__ == "__main__":
 
@@ -89,13 +116,14 @@ if __name__ == "__main__":
     #return json object as dict
     review_dataset = json.load(f)
 
-    review = ReviewModel(review_dataset)
+    review = ReviewModel(review_dataset=review_dataset)
     review.train()
 
     review.generate_embeddings_for_dataset()
     review.save_datatset()
+
+    review.save_model()
     
-    # _input = "This is a service"
     # print(_input)
     # prediction = review.predict(_input)
     # print(prediction)
